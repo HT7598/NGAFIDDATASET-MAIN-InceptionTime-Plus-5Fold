@@ -1,0 +1,13 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+2days/
+all_flights/
+outputs/
+*.h5
+.cursor/
+.vscode/
+.DS_Store
+Thumbs.db
