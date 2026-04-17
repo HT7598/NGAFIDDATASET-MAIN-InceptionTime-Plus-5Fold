@@ -167,6 +167,20 @@ def evaluate_fold(model, val_ds, y_true):
     return metrics, y_prob, y_pred
 
 
+def build_model(model_name, input_shape, mode):
+    model_name = model_name.lower()
+
+    if model_name in {"inception", "itime", "inceptiontime","inception_plus"}:
+        return Classifier_INCEPTION(
+            input_shape=input_shape,
+            nb_classes=1,
+            two_output=False,
+            mode=mode,
+        ).model
+
+    raise ValueError(f"Unsupported model name: {model_name}")
+
+
 def run_fold(dm, fold, args, output_dir):
     train_examples = get_slice(dm.data_dict, fold=fold, reverse=True)
     val_examples = get_slice(dm.data_dict, fold=fold, reverse=False)
@@ -203,12 +217,11 @@ def run_fold(dm, fold, args, output_dir):
     tf.keras.backend.clear_session()
     tf.keras.utils.set_random_seed(args.seed + fold)
 
-    model = Classifier_INCEPTION(
+    model = build_model(
+        model_name=args.model_name,
         input_shape=(4096, 23),
-        nb_classes=1,
-        two_output=False,
         mode="before_after",
-    ).model
+    )
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=args.learning_rate),
@@ -279,7 +292,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="NGAFID before/after 5-fold cross-validation trainer")
     parser.add_argument("--dataset-name", default="2days")
     parser.add_argument("--dataset-dir", default=".")
-    parser.add_argument("--output-dir", default="outputs/before_after_cv")
+    parser.add_argument("--model-name", default="inception")
+    parser.add_argument("--output-root", default="outputs")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
@@ -297,7 +311,7 @@ def main():
     os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
     tf.keras.utils.set_random_seed(args.seed)
 
-    output_dir = Path(args.output_dir)
+    output_dir = Path(args.output_root) / args.model_name / "before_after_cv"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     dm = NGAFID_Dataset_Manager(args.dataset_name, destination=args.dataset_dir)
@@ -333,6 +347,7 @@ def main():
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
     print("\n===== Cross-validation summary =====")
+    print(f"model_name = {args.model_name}")
     print(results_df[["fold", "accuracy", "f1", "roc_auc"]])
     print(
         "accuracy = {accuracy_mean:.4f} ± {accuracy_std:.4f}\n"
